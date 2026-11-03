@@ -7,7 +7,7 @@ DMS 0x2 @0:4d, NAS 0x3 @0:3e, VOICE 0x9 v2 @0:3d, UIM 0xb @0:48, WDS 0x1, WMS 0x
 written back to the partitions). Our identity d22ap = iPhone10,3 = Qualcomm Mav17 (BbChipID 0x3B0E1,
 IPSW Firmware/Mav17-9.00.02.Release.bbfw); real D22 ADT has /baseband {device-imei, imeisv, region-sku,
 compatible baseband,n41} and root serial-number/mlb-serial-number from syscfg; ours had neither.
-- wland patch userspace/wifi/patches/0003 (cell.c; commit 8ea... see git log): DMS revision/IDs/MSISDN/
+- wland patch userspace/wifi/patches/0003 (cell.c; commit 099bf34): DMS revision/IDs/MSISDN/
   operating mode -> sets ONLINE unless /var/local/cell.lpm; UIM card status + events; NAS serving system
   + signal (indications + 10 s poll); VOICE call indications (incoming logged "<<< RINGING").
   /var/local/cell.status (0600, full ids, phone only), wland.log masks IMEI/numbers. Commands: echo
