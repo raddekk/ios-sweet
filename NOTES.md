@@ -21,6 +21,17 @@ compatible baseband,n41} and root serial-number/mlb-serial-number from syscfg; o
   Image shim/out/shim-boot-0184-serial.img 87c2ff51... = 0183 kernel (xnu/out-0183, recipe reproduced
   0183 payload byte-identical) + that ADT + cmdline 0183 with sweetbuild=184. BOOTED 2026-11-03 (fastboot
   boot OKAY): IOPlatformSerialNumber now 8 chars = ABL serial. Log logs/live-0184-serial.txt.
+- RESULT boot 2 of 0184 (2026-11-03, wland 0f3b7b37, logs/live-0184-cell.txt; /var/local/wland.log):
+  modem fw "4.3.c5-00123-0324_1505_dc34e0d797" hw 10000; IMEI read (15 digits, SVN 16; MEID/ESN set);
+  MSISDN: QMI err 37 (UIM uninitialized). Op mode 5 at 2.4 s, SET ONLINE -> err 52 DEVICE_NOT_READY;
+  at ~170 s mode 0 online (accepted). SIM: slot 1 absent/error 3, slot 2 present, USIM + ISIM +1 app all
+  "detected", card-status GW primary/secondary indices 0xffff. NAS: searching, cs/ps detached, PLMN 404-72,
+  alternating GSM/UMTS, rssi -89..-111 dBm, never registers. Cause (known Qualcomm DSDS behaviour, not yet
+  proven here): no provisioning session -> limited/emergency camping only.
+  FIX built: wland fb51b11f (CI 41568706577, commit after 099bf34): UIM Change Provisioning Session
+  (0x38, primary GW on the first card's USIM, secondary on a second card), ONLINE retried every 10 s,
+  status tracks the SIM in any slot. INSTALLED (readback OK); needs the next boot. (iOS grep has no \|;
+  use grep -E over SSH.)
 - NEXT: reboot into 0184 again so the new wland runs; read /var/local/wland.log "cell:" lines + cell.status
   (IMEI read? SIM ready? registered/bars?). Then phase 2 = iOS side: port UniXNU/QcomBaseband
   (github.com/UniXNU/QcomBaseband, BSD-2, iPadOS 17 Coachz: AppleBaseband/AppleBasebandPCIControl/
