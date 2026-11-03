@@ -15,6 +15,16 @@
   "registered, cs 1 ps 1, umts, PLMN 404-72" (PS attached this time), WCDMA rssi -110 -> 0 bars at 12 s.
   Guess (untested): firmware rejects TLV 0x17 (change duration 0 = power cycle); fix = retry 0x33 without 0x17,
   then mode-pref only, and re-send after ONLINE. Incoming-call test requested while on UMTS.
+- **INCOMING CALL REACHES THE MODEM (boot 2 of 0184-bb, wland 2bf85d06, on UMTS)**: user called, caller heard RINGING
+  (not "busy"). wland.log: [115285] "call 1 setup ... (voice, mode 3)", [115961] "call 1 incoming ... <<< RINGING",
+  [123911] registered on GSM during the call, [142944] "call 1 end" (caller hung up). [179285] modem then moved to
+  LTE ("searching, cs 2 ps 2, lte") = the unrestricted RAT preference. iOS showed nothing (expected: no CommCenter, no
+  /dev/sweet-bb peer; USER: "no sim setting nor any status bar icon").
+- Fix ecc1fd3 (patch 0003 regenerated against donor f09fdb58 + 0001 + 0002, all three apply, tree compared byte-
+  identical to the edited copy; cell.c syntax-checked with cc + sysctl stub): 0x33 variants 0 mode+duration+domain,
+  1 mode+domain (permanent; our rmtfs EFS copy only), 2 mode only; 2 s between variants, up to 4 rounds 30 s apart,
+  re-sent 3 s after ONLINE is accepted; on success read back with 0x34 ("modem radio preference now mode ...").
+  cell.cmd: "rat HEX" sets the mask and sends live, "ratget" reads it. sweet-wifi CI 41623670424 (queued for a runner).
 - (earlier plan) phone to fastboot (manual, no iOS->fastboot path) -> fastboot boot shim/out/shim-boot-0184-bb.img again ->
   check "cell:" lines (RAT pref GSM+UMTS accepted?), ask the user to call -> read "cell: voice"/"cell: call" lines.
   Then phase 2 (a) wland side of /dev/sweet-bb.
