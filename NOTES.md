@@ -1,3 +1,59 @@
+## 2026-11-03: BRANCH codex/cellular (from myfork/codex/native-adreno-metal c27b1a9 = kernel 0183)
+Cellular work continues here so kernel patches stack on the 0183 kernel the phone runs. Wi-Fi/shim
+changes came over from codex/adreno-power-audit (commits 099bf34..0d12f38 there).
+
+## 2026-11-03: CELLULAR phase 1 - wland QMI client + serial number (image 0184)
+
+Goal (user): baseband, serial number, IMEI, signal, receive calls. Facts: wland already PAS-boots the full
+MPSS image for Wi-Fi; the modem announces every cellular QMI service on the same QRTR link (wland.log 0145:
+DMS 0x2 @0:4d, NAS 0x3 @0:3e, VOICE 0x9 v2 @0:3d, UIM 0xb @0:48, WDS 0x1, WMS 0x5 ...) and opens GLINK
+"apr_voice_svc"/"DS"/"DATA*". EFS comes from our rmtfs copies of modemst1/2/fsg (real IMEI/NV, never
+written back to the partitions). Our identity d22ap = iPhone10,3 = Qualcomm Mav17 (BbChipID 0x3B0E1,
+IPSW Firmware/Mav17-9.00.02.Release.bbfw); real D22 ADT has /baseband {device-imei, imeisv, region-sku,
+compatible baseband,n41} and root serial-number/mlb-serial-number from syscfg; ours had neither.
+- wland patch userspace/wifi/patches/0003 (cell.c; commit 099bf34): DMS revision/IDs/MSISDN/
+  operating mode -> sets ONLINE unless /var/local/cell.lpm; UIM card status + events; NAS serving system
+  + signal (indications + 10 s poll); VOICE call indications (incoming logged "<<< RINGING").
+  /var/local/cell.status (0600, full ids, phone only), wland.log masks IMEI/numbers. Commands: echo
+  answer|hangup|"dial N"|online|lpm|status > /var/local/cell.cmd. Off: /var/local/cell.off or sweetcell=0.
+  /var/local/cell.autoanswer answers incoming calls. NO AUDIO: ADSP/voice path not up.
+  Host-tested with synthetic messages (scratch test). CI sweet-wifi 41567415713 OK, wland 0f3b7b37...
+  INSTALLED 2026-11-03 over the file server (old 951a05a2 in research/cell-install-0184/wland.orig;
+  undo = put it back). Takes effect at the NEXT boot (wland boots the modem once per boot).
+- Serial: tools/adt-add-serial.py -> shim/out/sweet-0184-serial.adt (32-byte "SWEET-SERIAL-FROM-ABL"
+  placeholders); shim fdt_bootarg + loader adt_fill_serial put ABL's androidboot.serialno there at boot.
+  Image shim/out/shim-boot-0184-serial.img 87c2ff51... = 0183 kernel (xnu/out-0183, recipe reproduced
+  0183 payload byte-identical) + that ADT + cmdline 0183 with sweetbuild=184. BOOTED 2026-11-03 (fastboot
+  boot OKAY): IOPlatformSerialNumber now 8 chars = ABL serial. Log logs/live-0184-serial.txt.
+- RESULT boot 2 of 0184 (2026-11-03, wland 0f3b7b37, logs/live-0184-cell.txt; /var/local/wland.log):
+  modem fw "4.3.c5-00123-0324_1505_dc34e0d797" hw 10000; IMEI read (15 digits, SVN 16; MEID/ESN set);
+  MSISDN: QMI err 37 (UIM uninitialized). Op mode 5 at 2.4 s, SET ONLINE -> err 52 DEVICE_NOT_READY;
+  at ~170 s mode 0 online (accepted). SIM: slot 1 absent/error 3, slot 2 present, USIM + ISIM +1 app all
+  "detected", card-status GW primary/secondary indices 0xffff. NAS: searching, cs/ps detached, PLMN 404-72,
+  alternating GSM/UMTS, rssi -89..-111 dBm, never registers. Cause (known Qualcomm DSDS behaviour, not yet
+  proven here): no provisioning session -> limited/emergency camping only.
+  FIX built: wland fb51b11f (CI 41568706577, commit after 099bf34): UIM Change Provisioning Session
+  (0x38, primary GW on the first card's USIM, secondary on a second card), ONLINE retried every 10 s,
+  status tracks the SIM in any slot. INSTALLED (readback OK); needs the next boot. (iOS grep has no \|;
+  use grep -E over SSH.)
+- **REGISTERED (boot 3 of 0184, 2026-11-03, wland fb51b11f, logs/live-0184-prov.txt)**: at 2.79 s
+  "activating the primary GW provisioning session on SIM slot 2 (AID 16 bytes)" -> activated at 3.0 s ->
+  USIM detected -> pin1 state 3 (disabled) -> check-perso -> READY; NAS: registered, cs attached, ps
+  detached, GSM, MCC 404 MNC 72 "CellOne", not roaming, GSM rssi -85 -> 4 bars; op mode 0. So the DSDS
+  provisioning session WAS the blocker. Data (ps) not attached (no WDS/IPA work yet). Incoming-call test
+  requested from the user (watch "cell: call" lines). Dyld subcaches being pulled from the phone into
+  research/dsc (the root-image copies are 0-byte hard links in 7z).
+- NEXT: reboot into 0184 again so the new wland runs; read /var/local/wland.log "cell:" lines + cell.status
+  (IMEI read? SIM ready? registered/bars?). Then phase 2 = iOS side: port UniXNU/QcomBaseband
+  (github.com/UniXNU/QcomBaseband, BSD-2, iPadOS 17 Coachz: AppleBaseband/AppleBasebandPCIControl/
+  AppleBasebandPCIInterface channels qmux1/qmux2 -> QMUX<->QRTR, sahara stub, AppleIPAppender/PDP stubs).
+  Differences here: QRTR is in userland wland (needs a kernel<->wland relay, e.g. a /dev node like
+  /dev/wlan's bridge), iOS 16/xnu-8796 selectors must be re-checked in libIOABP/libPCITransport of the
+  20H392 cache (only the stub cache is in research/dsc; extract the subcaches from the root image),
+  ABM needs the Mav17 bbfw files, /baseband ADT node switches launchd to the cellular CommCenter (it is
+  removed from launchd.plist today, see image v13), and AppleBaseband BBUpdater must never reach the real
+  modem's flash (Coachz: sendImage dropped, sahara answered locally).
+
 ## 2026-11-02: 0183 booted (user approved): App Library FIXED; search pull-down status bar still black "sometimes"
 - 0183 (shim/out/shim-boot-0183-rows.img 6e14e250d464..., kernel c74c894f4751..., 0183-boot-start.json log_offset 49451505): only LA08 surfaces keep rows (224/480/736), no "texture is written" refusals. USER: "the library issue is now fixed. the search pull down status bar is still black (sometimes)".
 - Capture shots/search.png: black band = top ~135 px (status bar) over an otherwise correct blurred backdrop. No refusals in the log. Draw log (20000, scratch draws3.txt) search backdrop chain (e.g. draws 18713-18722): TimgA2Xhf_Isrc n=54 (9 quads) 1125x2436 -> 565x1220; two PBGRAXm_A2Xhf n=24 solid fills into 565x1220 (margins?); Tds8 -> 146x310; Tn23 blur -> 569x1224 -> 565x1220; TimgA2Xhfn_IsrcCcl full-screen composite WITHOUT blending from 565x1220; Bsov tint. Black band = top rows of that blurred texture: either the captured strip is black (source not yet drawn, timing -> "sometimes") or a margin fill covers it. Next: extend the draw log with vertex positions/colours (first vertices of A2Xhf/Timg draws into 565x1220) to decide.
