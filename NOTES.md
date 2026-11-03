@@ -2,6 +2,51 @@
 Cellular work continues here so kernel patches stack on the 0183 kernel the phone runs. Wi-Fi/shim
 changes came over from codex/adreno-power-audit (commits 099bf34..0d12f38 there).
 
+## 2026-11-03 (later): HANDOFF - cellular phase 2 (iOS side) started; phone ran out of charge
+State when stopped (08:46 IST, battery died, USB vanished; nothing destructive in flight):
+- Modem side WORKS from wland (see the phase 1 entry below): IMEI, SIM slot 2 ready after the UIM
+  provisioning session, registered on 404-72 "CellOne" GSM 4 bars. Incoming call test: caller heard
+  "busy", NO voice indication arrived; the modem was hopping GSM/UMTS/LTE with ps detached (no VoLTE ->
+  LTE camping cannot take calls). Fix BUILT, NOT INSTALLED: wland with GSM+UMTS preference (NAS 0x33,
+  /var/local/cell.lte or /var/local/cell.rat hex mask override), CS+PS domain, every VOICE message dumped,
+  non-ASCII PLMN names dropped: codex/adreno-power-audit 0d12f38 -> sweet-wifi CI (push run after
+  41568706577; artifact sweet-wifi-ios16). Installed on the phone: wland fb51b11f (provisioning version).
+  NEXT 1: install the newest wland (tools/sweet-files.py rm+put /var/local/bin/wland 755, readback),
+  reboot via fastboot boot shim/out/shim-boot-0184-serial.img, ask the user to call again, read
+  "cell: voice"/"cell: call" lines.
+- Branch codex/cellular (this branch) = myfork/codex/native-adreno-metal c27b1a9 (kernel 0183) + the
+  cellular commits. wifi.yml now also builds on pushes to codex/cellular.
+- Kernel patch xnu/patches/0184-sweet-cellular-baseband-bridge.patch (written against an 0183 tree =
+  0178 CI buildtree + 0179..0183, scratch only; NOT compiled locally): UniXNU QcomBaseband
+  (github.com/UniXNU/QcomBaseband = chiba233/Trogdor-ipadOS c5f82b5, BSD-2) coachz_baseband.cpp as
+  iokit/Kernel/arm/SweetBaseband.inc (#included at the end of RedwoodWLAN.cpp, so files.arm64 is not
+  touched) + its 4 protocol headers; bsd/dev/sweet_bb_dev.c (#included at the end of flame_wlan.c):
+  /dev/sweet-bb 0600, records {u32 type,a,b,c,d,len}+data: to wland 1 QMI request {local port, node,
+  port}, 2 DEL_CLIENT {port}; from wland 3 modem data {dst port, src node, src port}, 4 NEW_SERVER,
+  5 DEL_SERVER, 6 READY (publishes AppleBaseband, AppleBasebandPCIControl, 18 AppleBasebandPCIInterface
+  channels incl. qmux1/qmux2, the MAV PDP manager, AppleIPAppender). Boot-arg sweetbb=1; init call in
+  sweet_ufs_init after flame_wlan_init. Bridge QMI clients use QRTR ports 0x4100..0x413f (wland's own
+  cell client uses 0x30..0x33). xnu CI dispatched on codex/cellular (see below for the run id).
+- STILL TO DO for iOS bars/Settings: (a) wland side of /dev/sweet-bb (open O_NONBLOCK in cell_init,
+  forward NEW/DEL_SERVER, DATA to ports 0x4100+, READY after DMS/NAS/UIM/VOICE known, read records in
+  cell_poll -> qrtr_send; DEL_CLIENT = QRTR ctrl {6, node 1, port} to the modem ctrl port); (b) ADT
+  /baseband node (D22 ADT: compatible "baseband,n41", imeisv, region-sku, device-imei) so launchd takes
+  com.apple.CommCenter (_LimitLoadToDeviceTree baseband) instead of -noncellular; (c) put the
+  com.apple.CommCenter job back into /System/Library/xpc/launchd.plist (removed in image v13; today 531
+  jobs, CommCenter absent; back up first); (d) VERIFY the iOS 16 (20H392) ABI before booting: class
+  names, ABPInterfaceProtocol names, user-client selectors in libPCITransport/libIOABP/
+  AppleBasebandManager (Coachz numbers are from iPadOS 17 21H461); (e) ABM/BBUpdater firmware: Mav17
+  bbfw (IPSW Firmware/Mav17-9.00.02.Release.bbfw) laid out where ABM looks; the sahara/BHI paths must
+  never reach the real modem (they don't: sendImage is dropped, sahara answered in the kernel).
+- On iOS 16, ABM runs inside CommCenter (com.apple.basebandd.xpc is one of its MachServices).
+- dyld cache: research/dsc now has the main stub, .symbols and subcaches .01-.18 pulled from the phone
+  (tools/sweet-files.py get from /System/Library/Caches/com.apple.dyld; ~1 MB/s); continue from .19
+  (the pull loop skips existing non-empty files). The 7z listing of research/ipsw-x root image shows 0
+  bytes for them (hard links). Do NOT grep the whole cache on the phone over SSH while the file server
+  is pulling (took minutes; the phone died of battery during it, not proven related).
+- ipsw CLI 3.1.739 unpacked (checksum OK) in the session scratchpad only; re-extract from
+  research/tools-ipsw.
+
 ## 2026-11-03: CELLULAR phase 1 - wland QMI client + serial number (image 0184)
 
 Goal (user): baseband, serial number, IMEI, signal, receive calls. Facts: wland already PAS-boots the full
