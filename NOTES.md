@@ -9,7 +9,13 @@
   Old wland fb51b11f registered again: "cell: registered, cs 1 ps 2, umts, PLMN 404-72" (SIM slot 2, GW primary active).
 - wland 2bf85d06 (CI sweet-wifi 41570373592 on codex/cellular, patch 0003 ae030b88...) installed over the file server
   (rm + put 755, readback 2bf85d06 OK, sync OK). Backup of fb51b11f: research/cell-install-0184/wland.fb51b11f.
-- NEXT: phone to fastboot (manual, no iOS->fastboot path) -> fastboot boot shim/out/shim-boot-0184-bb.img again ->
+- Boot 2 of 0184-bb (16:21:22, watcher fastboot boot OKAY), wland 2bf85d06 running (toybox sha256sum; no shasum):
+  "radio preference mask 0xc (gsm umts), CS+PS" -> **msg 0x33 failed: QMI error 25 (OP_DEVICE_UNSUPPORTED)** at 2.36 s,
+  so the RAT restriction is NOT in effect. Still: provisioning active 3.57 s, ONLINE accepted 3.7 s, 7.5 s
+  "registered, cs 1 ps 1, umts, PLMN 404-72" (PS attached this time), WCDMA rssi -110 -> 0 bars at 12 s.
+  Guess (untested): firmware rejects TLV 0x17 (change duration 0 = power cycle); fix = retry 0x33 without 0x17,
+  then mode-pref only, and re-send after ONLINE. Incoming-call test requested while on UMTS.
+- (earlier plan) phone to fastboot (manual, no iOS->fastboot path) -> fastboot boot shim/out/shim-boot-0184-bb.img again ->
   check "cell:" lines (RAT pref GSM+UMTS accepted?), ask the user to call -> read "cell: voice"/"cell: call" lines.
   Then phase 2 (a) wland side of /dev/sweet-bb.
 
