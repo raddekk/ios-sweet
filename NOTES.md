@@ -1,3 +1,18 @@
+## 2026-11-03 16:17 IST: kernel 0184 (baseband bridge) BOOTED; wland 2bf85d06 (GSM+UMTS) INSTALLED, needs one more boot
+- xnu CI 41571453871 OK (artifact xnu-kernel 13201652121). Kernel fetched by ranges (research/gpu/fetch-kernel-0184.py)
+  -> xnu/out-0184/kernel.development.sweet 2fcaa75cea12... (= SHA256SUMS; strings have "SWEET BB:").
+- Recipe re-verified: mkpayload(out-0183, sweet-0184-serial.adt, 0184-serial cmdline) == payload-0184-serial.bin.
+  New: shim/out/payload-0184-bb.bin ae4fc692... (0184 kernel + sweet-0184-serial.adt + 0184-serial cmdline + sweetbb=1),
+  shim/out/shim-boot-0184-bb.img 1ed3b518... (in-tree `bash shim/build.sh`; build.sh is not +x; shim Image and dtb
+  identical to 0184-serial, ramdisk == payload). `fastboot boot` OKAY 16:17:37, SSH up ~40 s later.
+- Observed on this boot: /dev/sweet-bb present (crw------- root wheel 22,0) -> the bridge init runs; no panic.
+  Old wland fb51b11f registered again: "cell: registered, cs 1 ps 2, umts, PLMN 404-72" (SIM slot 2, GW primary active).
+- wland 2bf85d06 (CI sweet-wifi 41570373592 on codex/cellular, patch 0003 ae030b88...) installed over the file server
+  (rm + put 755, readback 2bf85d06 OK, sync OK). Backup of fb51b11f: research/cell-install-0184/wland.fb51b11f.
+- NEXT: phone to fastboot (manual, no iOS->fastboot path) -> fastboot boot shim/out/shim-boot-0184-bb.img again ->
+  check "cell:" lines (RAT pref GSM+UMTS accepted?), ask the user to call -> read "cell: voice"/"cell: call" lines.
+  Then phase 2 (a) wland side of /dev/sweet-bb.
+
 ## 2026-11-03: BRANCH codex/cellular (from myfork/codex/native-adreno-metal c27b1a9 = kernel 0183)
 Cellular work continues here so kernel patches stack on the 0183 kernel the phone runs. Wi-Fi/shim
 changes came over from codex/adreno-power-audit (commits 099bf34..0d12f38 there).
