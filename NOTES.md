@@ -32,6 +32,13 @@ compatible baseband,n41} and root serial-number/mlb-serial-number from syscfg; o
   (0x38, primary GW on the first card's USIM, secondary on a second card), ONLINE retried every 10 s,
   status tracks the SIM in any slot. INSTALLED (readback OK); needs the next boot. (iOS grep has no \|;
   use grep -E over SSH.)
+- **REGISTERED (boot 3 of 0184, 2026-11-03, wland fb51b11f, logs/live-0184-prov.txt)**: at 2.79 s
+  "activating the primary GW provisioning session on SIM slot 2 (AID 16 bytes)" -> activated at 3.0 s ->
+  USIM detected -> pin1 state 3 (disabled) -> check-perso -> READY; NAS: registered, cs attached, ps
+  detached, GSM, MCC 404 MNC 72 "CellOne", not roaming, GSM rssi -85 -> 4 bars; op mode 0. So the DSDS
+  provisioning session WAS the blocker. Data (ps) not attached (no WDS/IPA work yet). Incoming-call test
+  requested from the user (watch "cell: call" lines). Dyld subcaches being pulled from the phone into
+  research/dsc (the root-image copies are 0-byte hard links in 7z).
 - NEXT: reboot into 0184 again so the new wland runs; read /var/local/wland.log "cell:" lines + cell.status
   (IMEI read? SIM ready? registered/bars?). Then phase 2 = iOS side: port UniXNU/QcomBaseband
   (github.com/UniXNU/QcomBaseband, BSD-2, iPadOS 17 Coachz: AppleBaseband/AppleBasebandPCIControl/
