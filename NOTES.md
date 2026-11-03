@@ -26,7 +26,7 @@ State when stopped (08:46 IST, battery died, USB vanished; nothing destructive i
   5 DEL_SERVER, 6 READY (publishes AppleBaseband, AppleBasebandPCIControl, 18 AppleBasebandPCIInterface
   channels incl. qmux1/qmux2, the MAV PDP manager, AppleIPAppender). Boot-arg sweetbb=1; init call in
   sweet_ufs_init after flame_wlan_init. Bridge QMI clients use QRTR ports 0x4100..0x413f (wland's own
-  cell client uses 0x30..0x33). xnu CI dispatched on codex/cellular (see below for the run id).
+  cell client uses 0x30..0x33). xnu CI 41571453871 dispatched on codex/cellular (runner macos-15); check its result first.
 - STILL TO DO for iOS bars/Settings: (a) wland side of /dev/sweet-bb (open O_NONBLOCK in cell_init,
   forward NEW/DEL_SERVER, DATA to ports 0x4100+, READY after DMS/NAS/UIM/VOICE known, read records in
   cell_poll -> qrtr_send; DEL_CLIENT = QRTR ctrl {6, node 1, port} to the modem ctrl port); (b) ADT
