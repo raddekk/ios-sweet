@@ -1,3 +1,37 @@
+## 2026-11-03: CELLULAR phase 1 - wland QMI client + serial number (image 0184)
+
+Goal (user): baseband, serial number, IMEI, signal, receive calls. Facts: wland already PAS-boots the full
+MPSS image for Wi-Fi; the modem announces every cellular QMI service on the same QRTR link (wland.log 0145:
+DMS 0x2 @0:4d, NAS 0x3 @0:3e, VOICE 0x9 v2 @0:3d, UIM 0xb @0:48, WDS 0x1, WMS 0x5 ...) and opens GLINK
+"apr_voice_svc"/"DS"/"DATA*". EFS comes from our rmtfs copies of modemst1/2/fsg (real IMEI/NV, never
+written back to the partitions). Our identity d22ap = iPhone10,3 = Qualcomm Mav17 (BbChipID 0x3B0E1,
+IPSW Firmware/Mav17-9.00.02.Release.bbfw); real D22 ADT has /baseband {device-imei, imeisv, region-sku,
+compatible baseband,n41} and root serial-number/mlb-serial-number from syscfg; ours had neither.
+- wland patch userspace/wifi/patches/0003 (cell.c; commit 8ea... see git log): DMS revision/IDs/MSISDN/
+  operating mode -> sets ONLINE unless /var/local/cell.lpm; UIM card status + events; NAS serving system
+  + signal (indications + 10 s poll); VOICE call indications (incoming logged "<<< RINGING").
+  /var/local/cell.status (0600, full ids, phone only), wland.log masks IMEI/numbers. Commands: echo
+  answer|hangup|"dial N"|online|lpm|status > /var/local/cell.cmd. Off: /var/local/cell.off or sweetcell=0.
+  /var/local/cell.autoanswer answers incoming calls. NO AUDIO: ADSP/voice path not up.
+  Host-tested with synthetic messages (scratch test). CI sweet-wifi 41567415713 OK, wland 0f3b7b37...
+  INSTALLED 2026-11-03 over the file server (old 951a05a2 in research/cell-install-0184/wland.orig;
+  undo = put it back). Takes effect at the NEXT boot (wland boots the modem once per boot).
+- Serial: tools/adt-add-serial.py -> shim/out/sweet-0184-serial.adt (32-byte "SWEET-SERIAL-FROM-ABL"
+  placeholders); shim fdt_bootarg + loader adt_fill_serial put ABL's androidboot.serialno there at boot.
+  Image shim/out/shim-boot-0184-serial.img 87c2ff51... = 0183 kernel (xnu/out-0183, recipe reproduced
+  0183 payload byte-identical) + that ADT + cmdline 0183 with sweetbuild=184. BOOTED 2026-11-03 (fastboot
+  boot OKAY): IOPlatformSerialNumber now 8 chars = ABL serial. Log logs/live-0184-serial.txt.
+- NEXT: reboot into 0184 again so the new wland runs; read /var/local/wland.log "cell:" lines + cell.status
+  (IMEI read? SIM ready? registered/bars?). Then phase 2 = iOS side: port UniXNU/QcomBaseband
+  (github.com/UniXNU/QcomBaseband, BSD-2, iPadOS 17 Coachz: AppleBaseband/AppleBasebandPCIControl/
+  AppleBasebandPCIInterface channels qmux1/qmux2 -> QMUX<->QRTR, sahara stub, AppleIPAppender/PDP stubs).
+  Differences here: QRTR is in userland wland (needs a kernel<->wland relay, e.g. a /dev node like
+  /dev/wlan's bridge), iOS 16/xnu-8796 selectors must be re-checked in libIOABP/libPCITransport of the
+  20H392 cache (only the stub cache is in research/dsc; extract the subcaches from the root image),
+  ABM needs the Mav17 bbfw files, /baseband ADT node switches launchd to the cellular CommCenter (it is
+  removed from launchd.plist today, see image v13), and AppleBaseband BBUpdater must never reach the real
+  modem's flash (Coachz: sendImage dropped, sahara answered locally).
+
 ## 2026-10-30 (night): 0173 image packaged, not yet booted
 
 0173 (SH2/SH3 votes at max) CI run 41075906369 on DC28088/ios-sweet (use `gh -R DC28088/ios-sweet`; default
