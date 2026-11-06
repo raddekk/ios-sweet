@@ -1,0 +1,18 @@
+diff --git a/bsd/dev/redwood_apple80211.c b/bsd/dev/redwood_apple80211.c
+--- a/bsd/dev/redwood_apple80211.c
++++ b/bsd/dev/redwood_apple80211.c
+@@ -307,7 +307,13 @@ get(struct apple80211req *request)
+ 		 * for a WPA2 network ("Unable to join").
+ 		 */
+ 		uint8_t bits[13] = { 0 };
+-		static const uint8_t has[] = { 2, 3, 6, 9, 10, 14, 17, 19 };
++		/* WCN3990 wland already installs a 32-byte TKIP GTK when the RSN
++		 * group suite is TKIP, while the pairwise key remains CCMP. Without
++		 * CAP_TKIP, iOS rejects such a WPA2 network before ASSOCIATE reaches
++		 * the radio. This advertises the existing group-key path; it does
++		 * not add WPA1, TKIP-only pairwise operation, or a new handshake.
++		 */
++		static const uint8_t has[] = { 1, 2, 3, 6, 9, 10, 14, 17, 19 };
+ 
+ 		for (unsigned i = 0; i < sizeof(has); i++) {
+ 			bits[has[i] / 8] |= (uint8_t)(1u << (has[i] % 8));
